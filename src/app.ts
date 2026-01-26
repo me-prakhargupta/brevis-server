@@ -1,10 +1,20 @@
 import express from "express";
 import cors from "cors";
+import type { CorsOptions } from "cors";
 import cookieParser from "cookie-parser";
 
 const app = express();
 
-// app.use(cors());
+const corsOptions: CorsOptions = {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+// app.options("*", cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 // app.use(express.static("public"));

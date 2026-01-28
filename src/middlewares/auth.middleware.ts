@@ -1,6 +1,6 @@
 import jwt, { type JwtPayload } from "jsonwebtoken";
-import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import { ACCESS_TOKEN_SECRET } from "../config/env.js";
 
 declare global {
@@ -11,14 +11,18 @@ declare global {
     }
 }
 
-export const protect = asyncHandler(async (req, res, next) => {
-    
+export const verifyToken = asyncHandler(async (req, res, next) => {
     const token = req.cookies?.accessToken;
 
-    if(!token) throw new ApiError(401, "Access token missing!");
+    if(!token) {
+        throw new ApiError(401, "Unauthorized.");
+    }
 
-    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET) as JwtPayload;
-
-    req.user = {_id: decoded._id};
-    next();
+    try {
+        const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET) as JwtPayload & {_id: string};
+        req.user = {_id: decoded._id};
+        next();
+    } catch(error) {
+        throw new ApiError(401, "Unauthorized.");
+    }
 });

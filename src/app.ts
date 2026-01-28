@@ -24,10 +24,18 @@ app.get("/", (req, res) => {
     res.send("Hey from TS Backend");
 });
 
+//User routes
 import userRouter from "./routes/user.route.js";
 app.use("/api/v1/auth", userRouter);
 
+//Message routes
 import messsageRouter from "./routes/message.route.js";
 app.use("/api/v1/messages", messsageRouter);
 
+//Thoughts routes
+import thoughtRouter from "./routes/thought.route.js";
+app.use("/api/v1/thought", thoughtRouter);
+
+// import { errorMiddleware } from "./middlewares/error.middleware.js";
+// app.use(errorMiddleware);
 export default app;

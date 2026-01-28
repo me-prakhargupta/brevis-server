@@ -62,14 +62,22 @@ const signupUser = asyncHandler(async (req, res) => {
 
     if([fullname, username, email, password]
         .some((field) => field?.trim() === "")) {
-            throw new ApiError(400, "All field are required");
+            throw new ApiError(400, "Missing required fields. Please provide all mandatory details.");
         }
+    
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new ApiError(400, "Invalid email format.");
+    }
+
+    if(password.length < 7) {
+        throw new ApiError(400, "Password must be at least 7 characters long");
+    }
 
     const existedUser =  await UserModel.findOne({
         $or: [{username}, {email}]
     });
 
-    if(existedUser) throw new ApiError(409, "User with current email or username is already registered. Please try with another");
+    if(existedUser) throw new ApiError(409, "An account with this email or username already exists.");
 
     const user = await UserModel.create({
         fullname,
@@ -90,29 +98,31 @@ const signupUser = asyncHandler(async (req, res) => {
     .cookie("accessToken", accessToken, cookieOptions)
     .cookie("refreshToken", refreshToken, cookieOptions)
     .json(
-        new ApiResponse(200, {user: createdUser},
-            "User created in successfully"
+        new ApiResponse(201, {user: createdUser},
+            "Your account has been created successfully. We’re glad to have you with us."
         )
     )
 
 });
 
 const signinUser = asyncHandler(async (req, res) => {
-    const { username, email, password } = req.body;
+    const { identifier, password } = req.body;
 
-    if(!(username || email)) throw new ApiError(400, "Username or password is required");
+    if(!identifier) throw new ApiError(400, "Please provide your username or email to continue.");
 
-    if(!password) throw new ApiError(400, "Password is required");
+    if(!password) {
+        throw new ApiError(400, "Please enter your password to continue.");
+    }
 
     const user = await UserModel.findOne({
-        $or: [{username}, {email}]
+        $or: [{email: identifier}, {username: identifier}]
     });
 
-    if(!user) throw new ApiError(400, "Cannot find user");
+    if(!user) throw new ApiError(401, "Invalid username/email or password.")
 
     const isPasswordValid = await user.isPasswordCorrect(password);
 
-    if(!isPasswordValid) throw new ApiError(400, "Invalid input credentials");
+    if(!isPasswordValid) throw new ApiError(401, "Invalid username/email or password.");
 
     const {accessToken, refreshToken } = await generateRefreshAccessToken(user._id);
 
@@ -123,77 +133,94 @@ const signinUser = asyncHandler(async (req, res) => {
     .cookie("refreshToken", refreshToken, cookieOptions)
     .json(
         new ApiResponse(200, {user: loggedInUser},
-            "User logged in successfully"
+            "Welcome back. You’ve been logged in successfully."
         )
     )
 });
 
-const logoutUser = asyncHandler(async (req, res) => {
-    if(!req.user?._id) throw new ApiError(400, "User not found");
+// const logoutUser = asyncHandler(async (req, res) => {
+//     if(!req.user?._id) throw new ApiError(400, "User not found");
     
-    await UserModel.findByIdAndUpdate(req.user._id, {
-        $unset: {refreshToken: ""}
-    }, {
-        new: true
-    })
+//     await UserModel.findByIdAndUpdate(req.user._id, {
+//         $unset: {refreshToken: ""}
+//     }, {
+//         new: true
+//     })
     
-    return res.status(200)
-    .clearCookie("accessToken", cookieOptions)
-    .clearCookie("refreshToken", cookieOptions)
-    .json(new ApiResponse(200, {}, "User log out successfully"))
+//     return res.status(200)
+//     .clearCookie("accessToken", cookieOptions)
+//     .clearCookie("refreshToken", cookieOptions)
+//     .json(new ApiResponse(200, {}, "User log out successfully"))
+// });
+
+// const verifyUser = asyncHandler(async (req, res) => {
+//     const { email, code } = req.body
+
+//     if(!email || !code) throw new ApiError(500, "Email and verification code are required");
+
+//     const user = await UserModel.findOne(email);
+
+//     if(!user) throw new ApiError(404, "User not found");
+
+//     if(user.isVerified) return new ApiResponse(200, {}, "User alredy verified");
+
+//     if(!user.emailVerificationToken || !user.emailVerificationExpiry) {
+//         throw new ApiError(400, "No verification request found");
+//     }
+
+//     if(user.emailVerificationExpiry < new Date()) {
+//         throw new ApiError(400, "Verification code expired");
+//     }
+
+//     const hashedOTP = hashOTP(code);
+
+//     if(hashedOTP !== user.emailVerificationToken) {
+//         throw new ApiError(404, "Invalid verification code");
+//     }
+
+//     user.isVerified = true;
+//     user.emailVerificationToken = null;
+//     user.emailVerificationExpiry = null;
+
+//     await user.save({validateBeforeSave: false});
+
+//     return res.json(new ApiResponse(200, {}, "Email verified successfully"));
+// });
+
+// const acceptMessage = asyncHandler(async (req, res) => {
+//     const { isAccepting } = req.body
+
+//     try {
+//         await UserModel.findByIdAndUpdate(
+//             req.user?._id,
+//             { acceptMessages: isAccepting},
+//             {new: true}
+//         );
+
+//         return res.json(new ApiResponse(200, {}, "Updated successfully"));
+
+//     } catch(error) {
+//         throw new ApiError(200, "Internal server error");
+//     }
+
+// });
+
+const getMeUser = asyncHandler(async (req, res) => {
+    const userId = req.user?._id;
+
+    if(!userId) {
+        throw new ApiError(401, "Please sign in to continue.");
+    }
+
+    const user = await UserModel.findById(userId).select("-password refreshToken");
+
+    if(!user) {
+        throw new ApiError(401, "Unauthorized");
+    }
+
+    return res.json(new ApiResponse(200, user));
 });
 
-const verifyUser = asyncHandler(async (req, res) => {
-    const { email, code } = req.body
-
-    if(!email || !code) throw new ApiError(500, "Email and verification code are required");
-
-    const user = await UserModel.findOne(email);
-
-    if(!user) throw new ApiError(404, "User not found");
-
-    if(user.isVerified) return new ApiResponse(200, {}, "User alredy verified");
-
-    if(!user.emailVerificationToken || !user.emailVerificationExpiry) {
-        throw new ApiError(400, "No verification request found");
-    }
-
-    if(user.emailVerificationExpiry < new Date()) {
-        throw new ApiError(400, "Verification code expired");
-    }
-
-    const hashedOTP = hashOTP(code);
-
-    if(hashedOTP !== user.emailVerificationToken) {
-        throw new ApiError(404, "Invalid verification code");
-    }
-
-    user.isVerified = true;
-    user.emailVerificationToken = null;
-    user.emailVerificationExpiry = null;
-
-    await user.save({validateBeforeSave: false});
-
-    return res.json(new ApiResponse(200, {}, "Email verified successfully"));
-});
-
-const acceptMessage = asyncHandler(async (req, res) => {
-    const { isAccepting } = req.body
-
-    try {
-        await UserModel.findByIdAndUpdate(
-            req.user?._id,
-            { acceptMessages: isAccepting},
-            {new: true}
-        );
-
-        return res.json(new ApiResponse(200, {}, "Updated successfully"));
-
-    } catch(error) {
-        throw new ApiError(200, "Internal server error");
-    }
-
-});
 
 //Update user password or change user password
 // const changePassword = asyncHandler(async (req, res) => {
@@ -218,7 +245,8 @@ const acceptMessage = asyncHandler(async (req, res) => {
 export {
     signupUser,
     signinUser,
-    logoutUser,
-    verifyUser,
-    acceptMessage
+    getMeUser
+    // logoutUser,
+    // verifyUser,
+    // acceptMessage
 }

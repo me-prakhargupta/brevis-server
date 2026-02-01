@@ -59,10 +59,9 @@ const generateRefreshAccessToken = async(userId: Types.ObjectId | string): Promi
 
 export const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: true,   
   sameSite: "none" as const,
 };
-
 
 const signupUser = asyncHandler(async (req, res) => {
     const { fullname, username, email, password } = req.body;

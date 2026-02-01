@@ -5,40 +5,52 @@ import cookieParser from "cookie-parser";
 
 const app = express();
 
+app.set("trust proxy", 1);
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
 const corsOptions: CorsOptions = {
-    origin: [
-    "http://localhost:3000",
-    "http://192.168.1.48:3000"],
-    methods: ["GET", "POST"],
-    credentials: true,
-    optionsSuccessStatus: 200
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PATCH", "DELETE"],
 };
 
+app.options(/.*/, cors(corsOptions));
 app.use(cors(corsOptions));
-// app.options("*", cors(corsOptions));
 
-app.use(express.json());
-app.use(express.urlencoded({extended: true}));
-// app.use(express.static("public"));
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
 
 app.get("/", (req, res) => {
-    res.send("Server is running");
+  res.send("Brevis is active.");
 });
 
-//User routes
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+// Routes
 import userRouter from "./routes/user.route.js";
-app.use("/api/v1/auth", userRouter);
-
-//Thoughts routes
 import thoughtRouter from "./routes/thought.route.js";
-app.use("/api/v1/thought", thoughtRouter);
-
-//Message routes
 import messsageRouter from "./routes/message.route.js";
-app.use("/api/v1/message", messsageRouter);
+import responseRouter from "./routes/response.route.js";
 
-//Global error middleware
+app.use("/api/v1/auth", userRouter);
+app.use("/api/v1/thought", thoughtRouter);
+app.use("/api/v1/message", messsageRouter);
+app.use("/api/v1/users", responseRouter);
+
+// Error middleware
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 app.use(errorMiddleware);
 

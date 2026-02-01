@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Types } from "mongoose";
 import { generatOTP, hashOTP } from "../utils/otp.js";
+import ThoughtModel from "../models/thought.model.js";
 
 type Tokens = {
     accessToken: string;
@@ -25,6 +26,10 @@ const generateRefreshAccessToken = async(userId: Types.ObjectId | string): Promi
         return { accessToken, refreshToken };
 
     } catch(error) {
+        if(error instanceof ApiError) {
+            throw error;
+        }
+        console.log("Tokenn generation error: ", error);
         throw new ApiError(500, "Error while generating tokens");
     }
 };
@@ -52,11 +57,12 @@ const generateRefreshAccessToken = async(userId: Types.ObjectId | string): Promi
 //     }
 // }
 
-const cookieOptions = {
-    httpsOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const
+export const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "none" as const,
 };
+
 
 const signupUser = asyncHandler(async (req, res) => {
     const { fullname, username, email, password } = req.body;
@@ -101,6 +107,7 @@ const signupUser = asyncHandler(async (req, res) => {
     // const { otp } = await generateEmailVerificationToken(user._id);
 
     return res
+    .status(201)
     .cookie("accessToken", accessToken, cookieOptions)
     .cookie("refreshToken", refreshToken, cookieOptions)
     .json(
@@ -149,33 +156,8 @@ const signinUser = asyncHandler(async (req, res) => {
     )
 });
 
-const getMeUser = asyncHandler(async (req, res) => {
-    const userId = req.user?._id;
-
-    if(!userId) {
-        throw new ApiError(401, "Please sign in to continue.");
-    }
-
-    const user = await UserModel.findById(userId);
-
-    if(!user) {
-        throw new ApiError(401, "Unauthorized");
-    }
-
-    const safeUser = {
-        _id: user._id,
-        fullname: user.fullname,
-        username: user.username,
-        thoughtsCount: user.thoughtsCount,
-    };
-
-    console.log(user);
-    
-    return res.json(new ApiResponse(200, user));
-});
-
-const logoutUser = asyncHandler(async (req, res) => {
-    if(!req.user?._id) throw new ApiError(400, "User not found");
+const signoutUser = asyncHandler(async (req, res) => {
+    if(!req.user?._id) throw new ApiError(401, "User not found");
     
     await UserModel.findByIdAndUpdate(req.user._id, {
         $unset: {refreshToken: ""}
@@ -187,6 +169,115 @@ const logoutUser = asyncHandler(async (req, res) => {
     .clearCookie("accessToken", cookieOptions)
     .clearCookie("refreshToken", cookieOptions)
     .json(new ApiResponse(200, {}, "User log out successfully"))
+});
+
+const getUser = asyncHandler(async (req, res) => {
+    const userId = req.user?._id;
+
+    if(!userId) {
+        throw new ApiError(401, "Please sign in to continue.");
+    }
+
+    const user = await UserModel.findById(userId);
+
+    if(!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    let count = await ThoughtModel.countDocuments({
+        "author": user._id
+    });
+
+    const safeUser = {
+        _id: user._id,
+        fullname: user.fullname,
+        username: user.username,
+        profileImage: user.profileImage,
+        about: user.about,
+        thoughtsCount: count,
+        isPrivate: user.isPrivate,
+    };    
+    return res.json(new ApiResponse(200, safeUser));
+});
+
+const getUserProfile = asyncHandler(async(req, res) => {
+    const { username } = req.body;
+
+    if (typeof username !== "string" || !username.trim()) {
+        throw new ApiError(400, "Username must not be blank.");
+    }
+
+    const user = await UserModel.findOne({username});
+    if(!user) {
+        throw new ApiError(404, "User not found.");
+    }
+
+    const safeUserInfo: any = {
+        _id: user._id,
+        username: user.username,
+        profileImage: user.profileImage,
+        isPrivate: user.isPrivate,
+    }
+
+    if(!user.isPrivate) {
+        safeUserInfo.fullname = user.fullname;
+        safeUserInfo.about = user.about;
+
+        const userThoughts = await ThoughtModel
+            .find({
+                author: user._id
+            })
+            .select("_id content");
+        
+            safeUserInfo.content = userThoughts;
+    }
+
+    return res.status(200).json(new ApiResponse(200, safeUserInfo, "User information retrieved successfully."));
+
+});
+
+// const validUser = asyncHandler(async(req, res) => {
+//     const { username } = req.body;
+
+//     const user = await UserModel.find(username);
+
+//     if(!user) {
+//         throw new ApiError(404, "User not found");
+//     }
+
+//     return res
+//         .status(200)
+//         .json(new ApiResponse(200, {}, "A valid user found"));
+// })
+
+const toggleVisibility = asyncHandler(async (req, res) => {
+    const userId = req.user?._id;
+    const { isPrivate } = req.body;
+    
+    if (!userId) {
+        throw new ApiError(401, "Please sign in to continue.");
+    }
+
+    if(typeof isPrivate !== "boolean") {
+        throw new ApiError(400, "Invalid value for visibility.");
+    }
+
+    const user = await UserModel.findByIdAndUpdate(
+        userId,
+        {
+            isPrivate
+        }, {
+            new: true
+        }
+    );
+
+    if (!user) {
+        throw new ApiError(404, "User not found.");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {isPrivate}, "Your space has been updated."))
 });
 
 // const verifyUser = asyncHandler(async (req, res) => {
@@ -266,8 +357,8 @@ const logoutUser = asyncHandler(async (req, res) => {
 export {
     signupUser,
     signinUser,
-    getMeUser,
-    logoutUser,
-    // verifyUser,
-    // acceptMessage
+    signoutUser,
+    getUser,
+    getUserProfile,
+    toggleVisibility,
 }

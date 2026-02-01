@@ -10,12 +10,13 @@ export interface User extends Document {
     email: string;
     password: string;
     profileImage: string;
+    isPrivate: boolean;
+    about: string;
+
     refreshToken: string;
-    thoughtsCount: number;
     isVerified: boolean;
     emailVerificationToken: string | null;
     emailVerificationExpiry: Date | null;
-    isPrivate: boolean;
 
     isPasswordCorrect(password: string): Promise<boolean>;
     generateAccessToken(): Promise<string>;
@@ -49,15 +50,19 @@ const userSchema = new Schema<User>({
     },
     profileImage: {
         type: String,
-        default: ""
+        default: "/login.jpg",
+    },
+    isPrivate: {
+        type: Boolean,
+        default: false,
+    },
+    about: {
+        type: String,
+        default: "Trying to be kinder to myself."
     },
     refreshToken: {
         type: String,
         default: ""
-    },
-    thoughtsCount: {
-        type: Number,
-        default: 0
     },
     isVerified: {
         type: Boolean,
@@ -70,10 +75,6 @@ const userSchema = new Schema<User>({
     emailVerificationExpiry: {
         type: Date,
         default: null
-    },
-    isPrivate: {
-        type: Boolean,
-        default: false,
     }
     
 }, {timestamps: true});

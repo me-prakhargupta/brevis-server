@@ -1,19 +1,14 @@
 import { Router } from "express";
-import { signupUser, signinUser, getMeUser, logoutUser } from "../controllers/user.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+import { signupUser, signinUser, getUser, signoutUser, getUserProfile, toggleVisibility } from "../controllers/user.controller.js";
+import { requireAuth } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
-//User authtication routes
 router.route("/signup").post(signupUser);
 router.route("/signin").post(signinUser);
-// router.route("/verify").post(verifyUser);
-
-//User protect routes
-router.route("/logout").post(verifyToken, logoutUser);
-
-//Secured (Protected) Route
-router.route("/me").get(verifyToken, getMeUser);
-// router.route("/accept-message").patch(protect, acceptMessage);
+router.route("/signout").post(requireAuth, signoutUser);
+router.route("/me").get(requireAuth, getUser);
+router.route("/visibility").patch(requireAuth, toggleVisibility);
+router.route("/username").post(getUserProfile);
 
 export default router;

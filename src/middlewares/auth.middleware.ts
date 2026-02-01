@@ -11,23 +11,24 @@ declare global {
     }
 }
 
-export const verifyToken = asyncHandler(async (req, res, next) => {
+export const requireAuth = asyncHandler(async (req, res, next) => {
     const token = req.cookies?.accessToken;
 
     if(!token) {
         throw new ApiError(401, "Unauthorized.");
     }
 
-    try {
-        const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET) as JwtPayload & {_id: string};
-        req.user = { _id: decoded._id };
-        next();
-    } catch(error) {
+    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET) as JwtPayload & {_id: string};
+
+    if (!decoded || typeof decoded !== "object" || !("_id" in decoded)) {
         throw new ApiError(401, "Unauthorized.");
     }
+
+    req.user = { _id: decoded._id };
+    return next();
 });
 
-export const optionalVerifyToken = asyncHandler(async (req, resizeBy, next) => {
+export const optionalAuth = asyncHandler(async (req, res, next) => {
     const token = req.cookies?.accessToken;
 
     if(!token) return next();
@@ -35,9 +36,12 @@ export const optionalVerifyToken = asyncHandler(async (req, resizeBy, next) => {
     try {
         const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET) as JwtPayload & { _id: string };
 
-        req.user = { _id: decoded._id };
+        if (decoded && decoded._id) {
+            req.user = { _id: decoded._id };
+        }
     } catch(err) {
+        // silently ignore invalid token for optional auth
     }
 
-     next();
+     return next();
 })

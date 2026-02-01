@@ -1,9 +1,12 @@
 import { Router } from "express";
-import { optionalVerifyToken } from "../middlewares/auth.middleware.js";
-import { shareThought } from "../controllers/thought.controller.js";
+import { requireAuth, optionalAuth } from "../middlewares/auth.middleware.js";
+import { getThoughts, shareThought, getPublicThoughts, deleteThought } from "../controllers/thought.controller.js";
 
 const router = Router();
 
-router.route("/share").post(optionalVerifyToken, shareThought);
+router.route("/get").get(requireAuth, getThoughts);
+router.route("/share").post(optionalAuth, shareThought);
+router.route("/public").get(requireAuth, getPublicThoughts);
+router.route("/:id").delete(requireAuth, deleteThought);
 
 export default router;

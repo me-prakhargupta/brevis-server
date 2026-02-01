@@ -1,33 +1,26 @@
 import mongoose, {Schema, Document} from "mongoose";
 
 export interface IThought extends Document {
-    sharedBy?: mongoose.Types.ObjectId;
-    thought: string;
-    
-    isDeleted: boolean;
-    isVisible?: string;
+    author?: mongoose.Types.ObjectId;
+    content: string;
+    isPublic?: boolean;
 };
 
 const thoughtSchema = new Schema<IThought>({
-    sharedBy: {
+    author: {
         type: Schema.Types.ObjectId,
         ref: "User",
         required: false,
     },
-    thought: {
+    content: {
         type: String,
         required: true,
         trim: true,
         maxlength: 300
     },
-    isDeleted: {
+    isPublic: {
         type: Boolean,
-        default: false
-    },
-    isVisible: {
-        type: String,
-        enum: ["private", "public"],
-        default: "public",
+        default: true,
     }
 }, {timestamps: true});
 

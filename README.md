@@ -13,6 +13,7 @@
 - [Tech Stack](#tech-stack)
 - [Backend Design Principles](#backend-design-principles)
 - [Architecture](#architecture)
+- [Testing](#testing)
 - [Getting Started](#getting-started)
   - [Clone the repository](#1-clone-the-repository)
   - [Install dependencies](#2-install-dependencies)
@@ -81,6 +82,21 @@ Database (MongoDB)
 - Structured data models via Mongoose
 
 ---
+
+## Testing
+
+This project includes integration tests for critical backend functionality using Jest and Supertest.
+
+### Covered Scenarios:
+- User authentication (signin)
+- Rate limiting behavior (429 after limit exceeded)
+- Middleware flow validation
+
+### Run tests:
+
+```bash
+npm test
+```
 
 ## Getting Started
 

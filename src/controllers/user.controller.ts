@@ -120,6 +120,8 @@ const signupUser = asyncHandler(async (req, res) => {
 const signinUser = asyncHandler(async (req, res) => {
     const { identifier, password } = req.body;
 
+    console.log("Signin hit");
+    
     if(!identifier) throw new ApiError(400, "Please provide your username or email to continue.");
     
     if(!password) {
